@@ -1,0 +1,191 @@
+# Full public stack: databases + Kafka + Redis + 4 services + nginx gateway.
+# Usage:
+#   docker compose -f docker-compose.prod.yml up -d --build
+#   then tunnel or point a domain at :8080
+
+services:
+  postgres-inventory:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: seatlock
+      POSTGRES_PASSWORD: seatlock
+      POSTGRES_DB: inventory
+    volumes:
+      - pg_inventory_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U seatlock -d inventory']
+      interval: 5s
+      timeout: 5s
+      retries: 15
+
+  postgres-orders:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: seatlock
+      POSTGRES_PASSWORD: seatlock
+      POSTGRES_DB: orders
+    volumes:
+      - pg_orders_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U seatlock -d orders']
+      interval: 5s
+      timeout: 5s
+      retries: 15
+
+  postgres-payments:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: seatlock
+      POSTGRES_PASSWORD: seatlock
+      POSTGRES_DB: payments
+    volumes:
+      - pg_payments_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U seatlock -d payments']
+      interval: 5s
+      timeout: 5s
+      retries: 15
+
+  postgres-notifications:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: seatlock
+      POSTGRES_PASSWORD: seatlock
+      POSTGRES_DB: notifications
+    volumes:
+      - pg_notifications_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U seatlock -d notifications']
+      interval: 5s
+      timeout: 5s
+      retries: 15
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  kafka:
+    image: apache/kafka:3.8.1
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
+      KAFKA_LOG_DIRS: /tmp/kraft-combined-logs
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          '/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list || exit 1',
+        ]
+      interval: 10s
+      timeout: 10s
+      retries: 18
+      start_period: 30s
+
+  inventory:
+    build:
+      context: .
+      dockerfile: Dockerfile.service
+      args:
+        SERVICE: inventory-service
+    environment:
+      PORT: 3001
+      DATABASE_URL: postgresql://seatlock:seatlock@postgres-inventory:5432/inventory
+      KAFKA_BROKERS: kafka:9092
+      REDIS_URL: redis://redis:6379
+      HOLD_TTL_SECONDS: 300
+      RATE_LIMIT_MAX: 200
+      CORS_ORIGIN: ${CORS_ORIGIN:-*}
+    depends_on:
+      postgres-inventory:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  order:
+    build:
+      context: .
+      dockerfile: Dockerfile.service
+      args:
+        SERVICE: order-service
+    environment:
+      PORT: 3002
+      DATABASE_URL: postgresql://seatlock:seatlock@postgres-orders:5432/orders
+      KAFKA_BROKERS: kafka:9092
+      CORS_ORIGIN: ${CORS_ORIGIN:-*}
+    depends_on:
+      postgres-orders:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+
+  payment:
+    build:
+      context: .
+      dockerfile: Dockerfile.service
+      args:
+        SERVICE: payment-service
+    environment:
+      PORT: 3003
+      DATABASE_URL: postgresql://seatlock:seatlock@postgres-payments:5432/payments
+      KAFKA_BROKERS: kafka:9092
+      PAYMENT_FAILURE_RATE: 0.15
+      PAYMENT_LATENCY_MS: 400
+      CORS_ORIGIN: ${CORS_ORIGIN:-*}
+    depends_on:
+      postgres-payments:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+
+  notification:
+    build:
+      context: .
+      dockerfile: Dockerfile.service
+      args:
+        SERVICE: notification-service
+    environment:
+      PORT: 3004
+      DATABASE_URL: postgresql://seatlock:seatlock@postgres-notifications:5432/notifications
+      KAFKA_BROKERS: kafka:9092
+      CORS_ORIGIN: ${CORS_ORIGIN:-*}
+    depends_on:
+      postgres-notifications:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+
+  gateway:
+    image: nginx:1.27-alpine
+    ports:
+      - '8080:80'
+    volumes:
+      - ./deploy/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - inventory
+      - order
+      - payment
+      - notification
+
+volumes:
+  pg_inventory_data:
+  pg_orders_data:
+  pg_payments_data:
+  pg_notifications_data:

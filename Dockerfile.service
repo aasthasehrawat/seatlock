@@ -1,0 +1,27 @@
+# Build any SeatLock backend workspace into a runnable image.
+# docker build -f Dockerfile.service --build-arg SERVICE=inventory-service -t seatlock-inventory .
+ARG SERVICE=inventory-service
+
+FROM node:20-bookworm-slim AS build
+ARG SERVICE
+WORKDIR /app
+COPY package.json package-lock.json tsconfig.base.json ./
+COPY packages/shared packages/shared
+COPY services/inventory-service/package.json services/inventory-service/
+COPY services/order-service/package.json services/order-service/
+COPY services/payment-service/package.json services/payment-service/
+COPY services/notification-service/package.json services/notification-service/
+COPY apps/web/package.json apps/web/
+COPY services/${SERVICE} services/${SERVICE}
+RUN npm ci && npm run build -w @seatlock/shared && npm run build -w @seatlock/${SERVICE}
+
+FROM node:20-bookworm-slim AS runner
+ARG SERVICE
+ENV NODE_ENV=production
+WORKDIR /app
+COPY --from=build /app/package.json /app/package-lock.json ./
+COPY --from=build /app/node_modules ./node_modules
+COPY --from=build /app/packages/shared ./packages/shared
+COPY --from=build /app/services/${SERVICE} ./services/${SERVICE}
+WORKDIR /app/services/${SERVICE}
+CMD ["node", "dist/index.js"]
