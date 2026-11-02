@@ -1,0 +1,39 @@
+{
+  "name": "@seatlock/inventory-service",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.js",
+    "migrate": "tsx src/db/migrate.ts",
+    "seed": "tsx src/db/seed.ts",
+    "seed:demo": "tsx src/db/seed-demo-activity.ts",
+    "test": "vitest run",
+    "test:unit": "vitest run --exclude '**/*.integration.test.ts'",
+    "test:integration": "vitest run src/**/*.integration.test.ts"
+  },
+  "dependencies": {
+    "@fastify/cors": "^10.0.1",
+    "@seatlock/shared": "*",
+    "dotenv": "^16.6.1",
+    "fastify": "^5.1.0",
+    "ioredis": "^5.4.1",
+    "kafkajs": "^2.2.4",
+    "pg": "^8.13.1",
+    "pino": "^9.5.0",
+    "uuid": "^11.0.3",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@testcontainers/kafka": "^10.14.0",
+    "@testcontainers/postgresql": "^10.14.0",
+    "@types/pg": "^8.11.10",
+    "@types/uuid": "^10.0.0",
+    "testcontainers": "^10.14.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.5"
+  }
+}

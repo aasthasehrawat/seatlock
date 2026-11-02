@@ -1,0 +1,38 @@
+{
+  "name": "@seatlock/order-service",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Order lifecycle service: reacts to inventory reservations, orchestrates payment, publishes order events via a transactional outbox",
+  "type": "module",
+  "main": "./dist/index.js",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "migrate": "tsx src/db/migrate-cli.ts",
+    "migrate:prod": "node dist/db/migrate-cli.js",
+    "typecheck": "tsc -p tsconfig.test.json --noEmit",
+    "test": "vitest run",
+    "test:unit": "vitest run",
+    "test:integration": "vitest run --config vitest.integration.config.ts"
+  },
+  "dependencies": {
+    "@fastify/cors": "^10.1.0",
+    "@seatlock/shared": "*",
+    "dotenv": "^16.4.5",
+    "fastify": "^5.1.0",
+    "kafkajs": "^2.2.4",
+    "pg": "^8.13.1",
+    "pino": "^9.5.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@testcontainers/postgresql": "^10.14.0",
+    "@types/pg": "^8.11.10",
+    "pino-pretty": "^13.0.0",
+    "testcontainers": "^10.14.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.5"
+  }
+}

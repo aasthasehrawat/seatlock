@@ -1,0 +1,49 @@
+{
+  "name": "seatlock",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Flash-sale ticketing platform with event-driven microservices",
+  "workspaces": [
+    "packages/*",
+    "services/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "build": "npm run build -w @seatlock/shared && npm run build --workspaces --if-present",
+    "build:shared": "npm run build -w @seatlock/shared",
+    "dev": "npm run build:shared && concurrently -n inventory,order,payment,notification,web -c blue,green,yellow,magenta,cyan \"npm run dev -w @seatlock/inventory-service\" \"npm run dev -w @seatlock/order-service\" \"npm run dev -w @seatlock/payment-service\" \"npm run dev -w @seatlock/notification-service\" \"npm run dev -w @seatlock/web\"",
+    "dev:services": "npm run build:shared && concurrently -n inventory,order,payment,notification -c blue,green,yellow,magenta \"npm run dev -w @seatlock/inventory-service\" \"npm run dev -w @seatlock/order-service\" \"npm run dev -w @seatlock/payment-service\" \"npm run dev -w @seatlock/notification-service\"",
+    "test": "npm run test --workspaces --if-present",
+    "test:unit": "npm run test:unit --workspaces --if-present",
+    "test:integration": "npm run test:integration --workspaces --if-present",
+    "lint": "eslint \"packages/**/*.{ts,tsx}\" \"services/**/*.{ts,tsx}\" \"apps/**/*.{ts,tsx}\"",
+    "format": "prettier --write \"**/*.{ts,tsx,js,json,md,yml,yaml}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,json,md,yml,yaml}\"",
+    "migrate": "npm run migrate -w @seatlock/inventory-service && npm run migrate -w @seatlock/order-service && npm run migrate -w @seatlock/payment-service && npm run migrate -w @seatlock/notification-service",
+    "seed": "npm run seed -w @seatlock/inventory-service",
+    "seed:demo": "npm run seed:demo -w @seatlock/inventory-service",
+    "setup:topics": "tsx scripts/setup-topics.ts",
+    "infra:up": "docker compose up -d",
+    "infra:down": "docker compose down",
+    "infra:logs": "docker compose logs -f",
+    "dlq:inspect": "tsx scripts/dlq-replay.ts inspect",
+    "dlq:replay": "tsx scripts/dlq-replay.ts replay",
+    "load-test": "k6 run tests/load/reservation-load.js",
+    "chaos": "tsx scripts/chaos-test.ts"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.6",
+    "@typescript-eslint/eslint-plugin": "^8.14.0",
+    "@typescript-eslint/parser": "^8.14.0",
+    "concurrently": "^9.1.0",
+    "eslint": "^9.14.0",
+    "eslint-config-prettier": "^9.1.0",
+    "prettier": "^3.3.3",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.5"
+  }
+}

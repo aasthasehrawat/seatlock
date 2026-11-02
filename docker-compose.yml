@@ -1,0 +1,130 @@
+services:
+  postgres-inventory:
+    image: postgres:16-alpine
+    container_name: seatlock-postgres-inventory
+    environment:
+      POSTGRES_USER: seatlock
+      POSTGRES_PASSWORD: seatlock
+      POSTGRES_DB: inventory
+    ports:
+      - '5432:5432'
+    volumes:
+      - pg_inventory_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U seatlock -d inventory']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  postgres-orders:
+    image: postgres:16-alpine
+    container_name: seatlock-postgres-orders
+    environment:
+      POSTGRES_USER: seatlock
+      POSTGRES_PASSWORD: seatlock
+      POSTGRES_DB: orders
+    ports:
+      - '5433:5432'
+    volumes:
+      - pg_orders_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U seatlock -d orders']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  postgres-payments:
+    image: postgres:16-alpine
+    container_name: seatlock-postgres-payments
+    environment:
+      POSTGRES_USER: seatlock
+      POSTGRES_PASSWORD: seatlock
+      POSTGRES_DB: payments
+    ports:
+      - '5434:5432'
+    volumes:
+      - pg_payments_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U seatlock -d payments']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  postgres-notifications:
+    image: postgres:16-alpine
+    container_name: seatlock-postgres-notifications
+    environment:
+      POSTGRES_USER: seatlock
+      POSTGRES_PASSWORD: seatlock
+      POSTGRES_DB: notifications
+    ports:
+      - '5435:5432'
+    volumes:
+      - pg_notifications_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U seatlock -d notifications']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: seatlock-redis
+    ports:
+      - '6379:6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  kafka:
+    image: apache/kafka:3.8.1
+    container_name: seatlock-kafka
+    ports:
+      - '9092:9092'
+      - '9093:9093'
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
+      KAFKA_LOG_DIRS: /tmp/kraft-combined-logs
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          '/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list || exit 1',
+        ]
+      interval: 10s
+      timeout: 10s
+      retries: 12
+      start_period: 20s
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:v0.7.2
+    container_name: seatlock-kafka-ui
+    ports:
+      - '8080:8080'
+    environment:
+      KAFKA_CLUSTERS_0_NAME: seatlock
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+    depends_on:
+      kafka:
+        condition: service_healthy
+
+volumes:
+  pg_inventory_data:
+  pg_orders_data:
+  pg_payments_data:
+  pg_notifications_data:
